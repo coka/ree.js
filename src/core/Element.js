@@ -4,8 +4,7 @@
 
 (function() {
 
-  var _tempObject;
-  var _persistedValue;
+  'use strict';
 
   REE.Element = function(config) {
 
@@ -30,18 +29,16 @@
 
   };
 
-  REE.Element.prototype.registerProperty = function(key, property, config) {
+  REE.Element.prototype.registerProperty = function(key, def, config) {
 
-    var prop = this._properties[key] = this._properties[key] || {};
+    if (this._properties[key] === undefined) {
+      this._properties[key] = new REE.Property(def);
+    } else {
+      this._properties[key].define(def);
+    }
+    var prop = this._properties[key];
 
-    prop.default    = property.value;
-    prop.type       = property.type;
-    prop.observer   = property.observer   !== undefined ? property.observer   : undefined;
-    prop.notify     = property.notify     !== undefined ? property.notify     : false;
-    prop.writable   = property.writable   !== undefined ? property.writable   : true;
-    prop.persist    = property.persist    !== undefined ? property.persist    : false;
-    prop.enumerable = property.enumerable !== undefined ? property.enumerable : true;
-
+    // TODO; remove?
     if (config instanceof Array && config[0] instanceof REE.Element && typeof config[1] === 'string') {
       prop.default = config[0][config[1]];
     } else if (config) {
@@ -53,7 +50,7 @@
 
     if (!this.hasOwnProperty(key)) {
 
-      var parentRef = {key: key, entity: this};
+      var parentRef = {key: key, element: this};
 
       Object.defineProperty(this, key, {
 
@@ -119,7 +116,7 @@
             }
 
             if (prop.persist === true) {
-              this._setPersistedValue(key, value);
+              this.setPersistedValue(key, value);
             }
 
           }.bind(this));
@@ -137,7 +134,7 @@
     }
 
     if (prop.persist) {
-      this[key] = this._getPersistedValue(key, prop.type);
+      this[key] = this.getPersistedValue(key);
     } else {
       this[key] = prop.default;
     }
@@ -147,9 +144,9 @@
   REE.Element.prototype.registerProperties = function(properties) {
 
     for (var key in properties) {
-      var property = properties[key];
+      var def = properties[key];
       var config = this._config[key];
-      this.registerProperty(key, property, config);
+      this.registerProperty(key, def, config);
     }
 
   };
@@ -161,11 +158,12 @@
 
     this._properties[key].notify = true;
 
+    // check for compatibility with polymer.
     if (target._properties && target._properties[targetkey]) {
       target._properties[targetkey].notify = true;
     }
 
-    this._effects[_changeEvent] =  function() {
+    this._effects[_changeEvent] = function() {
       target[targetkey] = this[key];
     }.bind(this);
 
@@ -178,6 +176,7 @@
     this.addEventListener(_changeEvent, this._effects[_changeEvent]);
     target.addEventListener(_targetChangeEvent, this._targetEffects[_targetChangeEvent]);
 
+    // TODO: consider reversing
     if (this[key] !== undefined) {
       target[targetkey] = this[key];
     } else if (target[targetkey] !== undefined) {
@@ -191,62 +190,6 @@
     for (var key in bindings) {
       this.bindProperty(target, key, bindings[key]);
     }
-
-  };
-
-  REE.Element.prototype.dispose = function() {
-
-    var i;
-    var j;
-
-    for (i in this._properties) {
-      delete this._properties[i];
-    }
-
-    // TODO: verify
-    for (i in this._effects) {
-      this.removeEventListener(i, this._effects[i]);
-      delete this._effects[i];
-    }
-    delete this._effects;
-
-    for (i in this._targetEffects) {
-      this._targetEffects[i].target.removeEventListener(i, this._targetEffects[i]);
-      delete this._targetEffects[i];
-    }
-    delete this._targetEffects;
-
-    for (i in this._debouncers) {
-      window.clearTimeout(this._debouncers[i]);
-      delete this._debouncers[i];
-    }
-    delete this._debouncers;
-
-    for (i in this._listeners) {
-      for (j = this._listeners[i].length; j--;) {
-        this.removeEventListener(i, this._listeners[i][j]);
-      }
-      delete this._listeners[i];
-    }
-    delete this._listeners;
-
-    this._parents.length = 0;
-    delete this._parents;
-
-    for (i in this._children) {
-      delete this._children[i];
-    }
-    delete this._children;
-
-  };
-
-  REE.Element.prototype.debounce = function(id, callback, timeout) {
-
-    window.clearTimeout(this._debouncers[id]);
-    this._debouncers[id] = setTimeout(function() {
-      callback();
-      delete this._debouncers[id];
-    }.bind(this), timeout);
 
   };
 
@@ -301,32 +244,32 @@
     if (event.bubble === true) {
       for (var j = 0; j < this._parents.length; j ++) {
         event.type = this._parents[j].key + '.' + eventType;
-        this._parents[j].entity.dispatchEvent(event);
+        this._parents[j].element.dispatchEvent(event);
       }
     }
 
   };
 
-  REE.Element.prototype._setPersistedValue = function(key, value) {
+  REE.Element.prototype.setPersistedValue = function(key, value) {
 
     // TODO: implement better serialization
 
-    _persistedValue =  JSON.stringify(value);
+    var _persistedValue =  JSON.stringify(value);
     localStorage.setItem(this.uuid + '_' + key, _persistedValue);
 
   };
 
-  REE.Element.prototype._getPersistedValue = function(key, type) {
+  REE.Element.prototype.getPersistedValue = function(key) {
 
-    _persistedValue = localStorage.getItem(this.uuid + '_' + key);
+    var _persistedValue = localStorage.getItem(this.uuid + '_' + key);
+    var Type = this._propertes[key].type;
 
     if (_persistedValue !== null) {
-      if (type === Number || type === String || type === Boolean) {
+      if (Type === Number || Type === String || Type === Boolean) {
         _persistedValue = JSON.parse(_persistedValue);
-      } else if (typeof type === 'function') {
+      } else if (typeof Type === 'function') {
         // TODO: implement better serialization
-        var Type = type;
-        _tempObject = JSON.parse(_persistedValue);
+        var _tempObject = JSON.parse(_persistedValue);
         _persistedValue = new Type();
         for (var i in _tempObject) {
           _persistedValue[i] = _tempObject[i];
@@ -339,15 +282,71 @@
 
   };
 
+  REE.Element.prototype.debounce = function(id, callback, timeout) {
+
+    window.clearTimeout(this._debouncers[id]);
+    this._debouncers[id] = setTimeout(function() {
+      callback();
+      delete this._debouncers[id];
+    }.bind(this), timeout);
+
+  };
+
   REE.Element.prototype._uuidChanged = function(event) {
 
     if (event.oldValue) {
       for (var i in this._properties) {
         if (this._propertes[i].persist) {
-          this[i] = this._getPersistedValue(i, this._properties[i].type);
+          this[i] = this.getPersistedValue(i);
         }
       }
     }
+
+  };
+
+  REE.Element.prototype.dispose = function() {
+
+    var i;
+    var j;
+
+    for (i in this._properties) {
+      delete this._properties[i];
+    }
+
+    // TODO: verify
+    for (i in this._effects) {
+      this.removeEventListener(i, this._effects[i]);
+      delete this._effects[i];
+    }
+    delete this._effects;
+
+    for (i in this._targetEffects) {
+      this._targetEffects[i].target.removeEventListener(i, this._targetEffects[i]);
+      delete this._targetEffects[i];
+    }
+    delete this._targetEffects;
+
+    for (i in this._debouncers) {
+      window.clearTimeout(this._debouncers[i]);
+      delete this._debouncers[i];
+    }
+    delete this._debouncers;
+
+    for (i in this._listeners) {
+      for (j = this._listeners[i].length; j--;) {
+        this.removeEventListener(i, this._listeners[i][j]);
+      }
+      delete this._listeners[i];
+    }
+    delete this._listeners;
+
+    this._parents.length = 0;
+    delete this._parents;
+
+    for (i in this._children) {
+      delete this._children[i];
+    }
+    delete this._children;
 
   };
 
