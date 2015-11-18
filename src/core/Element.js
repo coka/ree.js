@@ -277,6 +277,10 @@
 
   REE.Element.prototype.dispatchEvent = function(event) {
 
+    /**
+     * Inspired by https://github.com/mrdoob/eventdispatcher.js/
+     */
+
     var eventType = event.type;
 
     var listenerArray = [];
