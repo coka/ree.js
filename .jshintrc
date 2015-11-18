@@ -1,0 +1,26 @@
+{
+  "node": false,
+  "browser": true,
+  "indent": 2,
+  "bitwise": true,
+  "camelcase": true,
+  "curly": true,
+  "eqeqeq": true,
+  "immed": true,
+  "latedef": true,
+  "noarg": true,
+  "quotmark": "single",
+  "undef": true,
+  "unused": true,
+  "newcap": true,
+  "maxlen": 0,
+  "globals": {
+    "REE": true,
+    "THREE": true,
+    "wrap": true,
+    "console": true,
+    "unwrap": true,
+    "page": true,
+    "app": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ree.js",
+  "private": false,
+  "dependencies": {
+    "three-js": "arodic/three-js#~1.2.1"
+  }
+}
