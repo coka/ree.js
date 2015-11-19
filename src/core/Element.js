@@ -262,7 +262,7 @@
   REE.Element.prototype.getPersistedValue = function(key) {
 
     var _persistedValue = localStorage.getItem(this.uuid + '_' + key);
-    var Type = this._propertes[key].type;
+    var Type = this._properties[key].type;
 
     if (_persistedValue !== null) {
       if (Type === Number || Type === String || Type === Boolean) {
@@ -278,7 +278,7 @@
       return _persistedValue;
     }
 
-    return this._propertes[key].default;
+    return this._properties[key].default;
 
   };
 
@@ -296,7 +296,7 @@
 
     if (event.oldValue) {
       for (var i in this._properties) {
-        if (this._propertes[i].persist) {
+        if (this._properties[i].persist) {
           this[i] = this.getPersistedValue(i);
         }
       }

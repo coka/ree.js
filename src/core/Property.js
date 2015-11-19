@@ -22,7 +22,7 @@
 
   };
 
-  REE.Property.protptype.define = function(def) {
+  REE.Property.prototype.define = function(def) {
 
     if (def.value !== undefined) {
       this.default = def.value;
