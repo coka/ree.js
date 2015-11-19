@@ -158,7 +158,7 @@
 
     this._properties[key].notify = true;
 
-    // check for compatibility with polymer.
+    // For compatibility with polymer elements.
     if (target._properties && target._properties[targetkey]) {
       target._properties[targetkey].notify = true;
     }
@@ -220,9 +220,7 @@
 
   REE.Element.prototype.dispatchEvent = function(event) {
 
-    /**
-     * Inspired by https://github.com/mrdoob/eventdispatcher.js/
-     */
+    // Inspired by https://github.com/mrdoob/eventdispatcher.js/
 
     var eventType = event.type;
 
@@ -306,47 +304,41 @@
 
   REE.Element.prototype.dispose = function() {
 
-    var i;
-    var j;
+    for (var i in this._config) {
+      delete this._config[i];
+    }
 
     for (i in this._properties) {
       delete this._properties[i];
     }
 
-    // TODO: verify
     for (i in this._effects) {
       this.removeEventListener(i, this._effects[i]);
       delete this._effects[i];
     }
-    delete this._effects;
 
     for (i in this._targetEffects) {
       this._targetEffects[i].target.removeEventListener(i, this._targetEffects[i]);
       delete this._targetEffects[i];
     }
-    delete this._targetEffects;
 
     for (i in this._debouncers) {
       window.clearTimeout(this._debouncers[i]);
       delete this._debouncers[i];
     }
-    delete this._debouncers;
 
     for (i in this._listeners) {
-      for (j = this._listeners[i].length; j--;) {
+      for (var j = this._listeners[i].length; j--;) {
         this.removeEventListener(i, this._listeners[i][j]);
       }
       delete this._listeners[i];
     }
-    delete this._listeners;
 
     this._parents.length = 0;
-    delete this._parents;
 
     for (i in this._children) {
       delete this._children[i];
     }
-    delete this._children;
 
   };
 
