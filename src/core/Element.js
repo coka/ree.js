@@ -11,12 +11,12 @@
     Object.defineProperties(this, {
       '_config': {value: config || {}},
       '_properties': {value: {}},
-      '_effects': {value: {}},
-      '_targetEffects': {value: {}},
+      '_bindings': {value: {}},
       '_debouncers': {value: {}},
       '_listeners': {value: {}},
       '_parents': {value: []},
-      '_children': {value: {}}
+      '_children': {value: {}},
+      '_ready': {value: false, writable: true},
     });
 
     this.registerProperties({
@@ -27,25 +27,34 @@
       }
     });
 
+    setTimeout(function () {
+      this._ready = true;
+    }.bind(this));
+
   };
 
   REE.Element.prototype.registerProperty = function(key, def, config) {
 
     if (this._properties[key] === undefined) {
-      this._properties[key] = new REE.Property(def);
+      this._properties[key] = new REE.Property(this, key, def);
     } else {
       this._properties[key].define(def);
     }
     var prop = this._properties[key];
 
-    // TODO; remove?
+    // TODO: improve
+    // Declerative binding is hacky atm.
+    // It will break if the source element has declerative binding in config.
     if (config instanceof Array && config[0] instanceof REE.Element && typeof config[1] === 'string') {
-      prop.default = config[0][config[1]];
+      if (!config[0]._ready) {
+        prop.default = config[0]._config[config[1]];
+      } else {
+        prop.default = config[0][config[1]];
+      }
     } else if (config) {
       prop.default = config;
     }
 
-    var _changeEvent = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() + '-changed';
     var _oldValue;
 
     if (!this.hasOwnProperty(key)) {
@@ -66,34 +75,9 @@
             return;
           }
 
-          if (prop.writable === false && prop.value !== undefined) {
-            console.warn('REE.Element: ' + key + ' is read only.');
-          }
-
-          if (prop.type && value !== undefined) {
-            if (prop.type === String) {
-              if (typeof value !== 'string') {
-                console.warn('REE.Element: ' + key + ' is incorrect type.');
-                return;
-              }
-            } else if (prop.type === Boolean) {
-              if (typeof value !== 'boolean') {
-                console.warn('REE.Element: ' + key + ' is incorrect type.');
-                return;
-              }
-            } else if (prop.type === Number) {
-              if (typeof value !== 'number') {
-                console.warn('REE.Element: ' + key + ' is incorrect type.');
-                return;
-              }
-            } else if (typeof prop.type === 'function' && !(value instanceof prop.type)) {
-              console.warn('REE.Element: ' + key + ' is incorrect type.');
-              return;
-            }
-          }
-
           _oldValue = prop.value;
-          prop.value = value;
+
+          prop.setValue(value);
 
           if (_oldValue instanceof REE.Element) {
             _oldValue._parents.splice(_oldValue._parents.indexOf(parentRef), 1);
@@ -105,21 +89,20 @@
             this._children[key] = value;
           }
 
-          this.debounce(_changeEvent, function() {
-
-            if (prop.observer !== undefined) {
+          if (prop.observer !== undefined) {
+            if (this._ready) {
               this[prop.observer].call(this, {value: value, oldValue: _oldValue});
+            } else {
+              // debounce initial observer functions.
+              this.debounce(prop._path + '-init', function() {
+                this[prop.observer].call(this, {value: value, oldValue: _oldValue});
+              }.bind(this));
             }
+          }
 
-            if (prop.notify === true) {
-              this.dispatchEvent({type: _changeEvent, key: key, value: value, oldValue: _oldValue});
-            }
-
-            if (prop.persist === true) {
-              this.setPersistedValue(key, value);
-            }
-
-          }.bind(this));
+          if (prop.notify === true) {
+            this.dispatchEvent({type: prop._path + '-changed', key: key, value: value, oldValue: _oldValue});
+          }
 
         },
 
@@ -130,11 +113,19 @@
     }
 
     if (config instanceof Array && config[0] instanceof REE.Element && typeof config[1] === 'string') {
-      config[0].bindProperty(this, config[1], key);
+
+      if (!config[0]._ready) {
+        this.debounce('bind-property' + key, function () {
+          config[0].bindProperty(this, config[1], key);
+        }.bind(this));
+      } else {
+        config[0].bindProperty(this, config[1], key);
+      }
+
     }
 
     if (prop.persist) {
-      this[key] = this.getPersistedValue(key);
+      this[key] = prop.getPersistedValue();
     } else {
       this[key] = prop.default;
     }
@@ -153,34 +144,41 @@
 
   REE.Element.prototype.bindProperty = function(target, key, targetkey) {
 
-    var _changeEvent = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() + '-changed';
-    var _targetChangeEvent = targetkey.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() + '-changed';
-
-    this._properties[key].notify = true;
-
     // For compatibility with polymer elements.
-    if (target._properties && target._properties[targetkey]) {
-      target._properties[targetkey].notify = true;
+    // TODO: HACK! `target._property[targetkey]` makes code simpler.
+    if (target instanceof HTMLElement) {
+      target._properties = target._properties || {};
+      target._properties[targetkey] = new REE.Property(target, targetkey, {});
     }
 
-    this._effects[_changeEvent] = function() {
-      target[targetkey] = this[key];
-    }.bind(this);
+    var source = this;
 
-    this._targetEffects[_targetChangeEvent] = function() {
-      this[key] = target[targetkey];
-    }.bind(this);
+    var srcPath = this._properties[key]._path;
 
-    this._targetEffects[_targetChangeEvent].target = target;
+    this._properties[key].notify = true;
+    target._properties[targetkey].notify = true;
 
-    this.addEventListener(_changeEvent, this._effects[_changeEvent]);
-    target.addEventListener(_targetChangeEvent, this._targetEffects[_targetChangeEvent]);
+    this._bindings[srcPath] = {
+      source: source,
+      target: target,
+      sourcePath: source._properties[key]._path,
+      targetPath: target._properties[targetkey]._path,
+      sourceObserver: function() {
+        target[targetkey] = source[key];
+      },
+      targetObserver: function() {
+        source[key] = target[targetkey];
+      }
+    };
+
+    source.addEventListener(this._bindings[srcPath].sourcePath + '-changed', this._bindings[srcPath].sourceObserver);
+    target.addEventListener(this._bindings[srcPath].targetPath + '-changed', this._bindings[srcPath].targetObserver);
 
     // TODO: consider reversing
-    if (this[key] !== undefined) {
-      target[targetkey] = this[key];
+    if (source[key] !== undefined) {
+      target[targetkey] = source[key];
     } else if (target[targetkey] !== undefined) {
-      this[key] = target[targetkey];
+      source[key] = target[targetkey];
     }
 
   };
@@ -213,9 +211,30 @@
       var index = this._listeners[type].indexOf(listener);
       if (index !== -1) {
         this._listeners[type].splice(index, 1);
+        return;
       }
     }
 
+    console.warn('REE.Element: Could not find listener', type);
+
+  };
+
+  REE.Element.prototype.removeEventListeners = function(listener) {
+
+    if (typeof listener === 'string') {
+      if (this._listeners[listener] !== undefined) {
+        this._listeners[listener].length = 0;
+      }
+    }
+
+    if (typeof listener === 'function') {
+      for (var i in this._listeners) {
+        var index = this._listeners[i].indexOf(listener);
+        if (index !== -1) {
+          this._listeners[i].splice(index, 1);
+        }
+      }
+    }
   };
 
   REE.Element.prototype.dispatchEvent = function(event) {
@@ -248,38 +267,6 @@
 
   };
 
-  REE.Element.prototype.setPersistedValue = function(key, value) {
-
-    // TODO: implement better serialization
-
-    var _persistedValue =  JSON.stringify(value);
-    localStorage.setItem(this.uuid + '_' + key, _persistedValue);
-
-  };
-
-  REE.Element.prototype.getPersistedValue = function(key) {
-
-    var _persistedValue = localStorage.getItem(this.uuid + '_' + key);
-    var Type = this._properties[key].type;
-
-    if (_persistedValue !== null) {
-      if (Type === Number || Type === String || Type === Boolean) {
-        _persistedValue = JSON.parse(_persistedValue);
-      } else if (typeof Type === 'function') {
-        // TODO: implement better serialization
-        var _tempObject = JSON.parse(_persistedValue);
-        _persistedValue = new Type();
-        for (var i in _tempObject) {
-          _persistedValue[i] = _tempObject[i];
-        }
-      }
-      return _persistedValue;
-    }
-
-    return this._properties[key].default;
-
-  };
-
   REE.Element.prototype.debounce = function(id, callback, timeout) {
 
     window.clearTimeout(this._debouncers[id]);
@@ -295,7 +282,7 @@
     if (event.oldValue) {
       for (var i in this._properties) {
         if (this._properties[i].persist) {
-          this[i] = this.getPersistedValue(i);
+          this[i] = this._properties[i].getPersistedValue();
         }
       }
     }
@@ -312,14 +299,10 @@
       delete this._properties[i];
     }
 
-    for (i in this._effects) {
-      this.removeEventListener(i, this._effects[i]);
-      delete this._effects[i];
-    }
-
-    for (i in this._targetEffects) {
-      this._targetEffects[i].target.removeEventListener(i, this._targetEffects[i]);
-      delete this._targetEffects[i];
+    for (i in this._bindings) {
+      this._bindings[i].source.removeEventListener(this._bindings[i].sourcePath + '-changed', this._bindings[i].sourceObserver);
+      this._bindings[i].target.removeEventListener(this._bindings[i].targetPath + '-changed', this._bindings[i].targetObserver);
+      delete this._bindings[i];
     }
 
     for (i in this._debouncers) {

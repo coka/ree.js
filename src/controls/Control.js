@@ -27,14 +27,6 @@
   var unity = new THREE.Vector3(0, 1, 0);
   var unitz = new THREE.Vector3(0, 0, 1);
 
-  var plane = new THREE.Mesh(
-    new THREE.PlaneBufferGeometry(1000000, 1000000, 2, 2),
-    new THREE.MeshBasicMaterial({visible: false, wireframe: true, side: THREE.DoubleSide})
-);
-  plane.rotation.set(Math.PI / 2, 0, 0);
-  plane.updateMatrixWorld();
-  // TODO: align plane
-
   // Monostates.
   var selection = new REE.SelectionState();
 
@@ -49,7 +41,7 @@
         enumerable: true
       },
       'plane': {
-        value: plane.clone(),
+        value: new REE.PlaneHelper(),
         writable: false,
         enumerable: true
       },
@@ -57,9 +49,8 @@
     });
 
     this.helper.add(this.plane);
-    this.helper.update = function() {
-      this.updatePlaneOrientation();
-    }.bind(this);
+    this.helper.update = function() {};
+    this.plane.update = this.updatePlane.bind(this);
 
     this.registerProperties({
       camera: {
@@ -68,12 +59,10 @@
       },
       domElement: {
         type: HTMLElement,
-        notify: true
+        notify: true // TODO: remove?
       },
       scene: {
-        type: THREE.Scene,
-        observer: 'addHelper',
-        notify: true
+        type: THREE.Scene
       },
       selection: {
         value: selection,
@@ -81,17 +70,21 @@
         writable: false // TODO: consider making writable / non-monostate
       },
       active: {
+        value: false,
         type: Boolean,
         notify: true
       },
       mode: {
+        value: '',
         type: String,
         notify: true
       },
       snapDistance: {
+        value: 0,
         type: Number
       },
       snapAngle: {
+        value: 0,
         type: Number
       },
       enabled: {
@@ -216,6 +209,9 @@
 
         window.removeEventListener('mousemove', onMousemove);
         window.removeEventListener('mouseup', onMouseup);
+        if (clickmask.parentNode === document.body) {
+          document.body.removeChild(clickmask);
+        }
         return;
       }
 
@@ -429,6 +425,10 @@
         scope.onKeyup(event, event.which);
       }
 
+      if (event.which === 27) {
+        scope.cancel();
+      }
+
     }
 
     function onContextmenu(event) {
@@ -467,6 +467,10 @@
     // this.onTrack = function(event, pointers) {console.log('onTrack'); };
     // this.onTrackend = function(event, pointers) {console.log('onTrackend'); };
     // this.onHover = function(event, pointers) {console.log('onHover'); };
+
+    // this.onBegin = function(event, pointers) {console.log('onBegin'); };
+    // this.onCancel = function(event, pointers) {console.log('onCancel'); };
+    // this.onEnd = function(event, pointers) {console.log('onEnd'); };
 
     this.registerViewport = function(domElement, camera) {
 
@@ -524,35 +528,74 @@
   REE.Control.prototype = Object.create(REE.Element.prototype);
   REE.Control.prototype.constructor = REE.Control;
 
+  REE.Control.prototype.begin = function() {
+
+    this.scene._helpers.add(this.helper);
+    if (typeof this.onBegin === 'function') {
+      this.onBegin();
+    }
+    this.dispatchEvent({type: 'begin'});
+
+    return this;
+
+  };
+
+  REE.Control.prototype.cancel = function() {
+
+    if (this.helper.parent) {
+      this.helper.parent.remove(this.helper);
+    }
+    if (typeof this.onCancel === 'function') {
+      this.onCancel();
+    }
+    this.dispatchEvent({type: 'cancel'});
+
+    return this;
+
+  };
+
+  REE.Control.prototype.end = function() {
+
+    if (this.helper.parent) {
+      this.helper.parent.remove(this.helper);
+    }
+    if (typeof this.onEnd === 'function') {
+      this.onEnd();
+    }
+    this.dispatchEvent({type: 'end'});
+
+    return this;
+
+  };
+
   REE.Control.prototype.dispose = function() {
 
     REE.Element.prototype.dispose.call(this);
 
-    var i;
+    this.enabled = false;
+    this.active = false;
 
-    for (i = this._viewports.length; i--;) {
+    for (var i = this._viewports.length; i--;) {
       this.unregisterViewport(this._viewports[i].domElement);
     }
 
-    if (this.helper && this.helper.parent) {
+    if (this.helper.parent) {
       this.helper.parent.remove(this.helper);
     }
 
   };
 
-  REE.Control.prototype.updatePlaneOrientation = function() {
+  REE.Control.prototype.updatePlane = function (camera) {
 
-    if (this.camera === undefined) {
-
+    if (camera === undefined) {
       return;
-
     }
 
-    tempMatrix.extractRotation(this.camera.matrixWorld.clone());
+    tempMatrix.extractRotation(camera.matrixWorld.clone());
     tempVector.copy(unitz.multiplyScalar(1)).applyMatrix4(tempMatrix);
     alignVector.set(tempVector.dot(unitx),tempVector.dot(unity),tempVector.dot(unitz));
 
-    if (this.camera instanceof THREE.PerspectiveCamera) {
+    if (camera instanceof THREE.PerspectiveCamera) {
       alignVector.treshold = 0.999;
     } else {
       alignVector.treshold = 0.65;
@@ -566,9 +609,13 @@
       this.plane.lookAt(unity);
     }
 
+    this.plane.updateMatrixWorld();
+
   };
 
   REE.Control.prototype.getPointOnPlane = function(pointer, snap) {
+
+    this.plane.update(this.camera);
 
     raycaster.setFromCamera(pointer, this.camera);
     intersect = raycaster.intersectObjects([this.plane], true)[0];
@@ -580,14 +627,6 @@
         intersect.point.z = Math.round(intersect.point.z / this.snapDistance) * this.snapDistance;
       }
       return intersect.point;
-    }
-
-  };
-
-  REE.Control.prototype.addHelper = function() {
-
-    if (this.helper) {
-      this.scene._helpers.add(this.helper);
     }
 
   };

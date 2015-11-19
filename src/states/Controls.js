@@ -10,12 +10,16 @@
 
     REE.Element.call(this, config);
 
+    Object.defineProperties(this, {
+      '_name': {value: '', writable: true}
+    });
+
     this.registerProperties({
       scene: {
         type: REE.SceneState,
       },
       selectionControl: {
-        value: new REE.SelectionControl(),
+        value: new REE.SelectionControl({scene: [this, 'scene']}).begin(),
         type: REE.SelectionControl,
         vritable: false
       },
@@ -47,8 +51,6 @@
       }
     });
 
-    this.selectionControl.scene = this.scene;
-
   };
 
   REE.ControlsState.prototype = Object.create(REE.Element.prototype);
@@ -59,33 +61,37 @@
     var mode = this.selector.split(':')[1] || '';
 
     if (this._name !== name) {
-
-      var constructor = name.charAt(0).toUpperCase() + name.slice(1) + 'Control';
       if (this.control) {
         this.control.dispose();
       }
-      this.mode = mode;
-      this.control = new REE[constructor]();
-      this.bindProperty(this.control, 'scene', 'scene');
-      this.bindProperty(this.control, 'mode', 'mode');
-      this.bindProperty(this.control, 'snapDistance', 'snapDistance');
-      this.bindProperty(this.control, 'snapAngle', 'snapAngle');
+      if (name) {
 
-      this.control.addEventListener('active-changed', function() {
-        if (this.control.active) {
-          this.viewportControl.enabled = false;
-          this.selectionControl.enabled = false;
-          this.selectionControl.helper.visible = false;
-        } else {
-          this.viewportControl.enabled = true;
-          this.selectionControl.enabled = true;
-          this.selectionControl.helper.visible = true;
-        }
-      }.bind(this));
+        var constructor = name.charAt(0).toUpperCase() + name.slice(1) + 'Control';
+
+        this.mode = mode;
+        this.control = new REE[constructor]();
+        this.bindProperty(this.control, 'scene', 'scene');
+        this.bindProperty(this.control, 'mode', 'mode');
+        this.bindProperty(this.control, 'snapDistance', 'snapDistance');
+        this.bindProperty(this.control, 'snapAngle', 'snapAngle');
+        this.control.addEventListener('cancel', function() {this.selector = '';}.bind(this));
+        this.control.addEventListener('end', function() {this.selector = '';}.bind(this));
+        this.control.addEventListener('active-changed', function() {
+          if (this.control.active) {
+            this.viewportControl.enabled = false;
+            this.selectionControl.enabled = false;
+            this.selectionControl.helper.visible = false;
+          } else {
+            this.viewportControl.enabled = true;
+            this.selectionControl.enabled = true;
+            this.selectionControl.helper.visible = true;
+          }
+        }.bind(this));
+        this.control.begin();
+      }
 
       this._name = name;
     }
-
     this.mode = mode;
   };
 

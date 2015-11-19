@@ -29,6 +29,8 @@
 
     REE.Control.call(this, parameters);
 
+    var scope = this;
+
     this.registerProperties({
       target: {
         type: THREE.Object3D,
@@ -56,15 +58,15 @@
       }
     });
 
-    this.helper.add(this.plane);
+
     this.helper.visible = false;
+    this.plane.update = this.updatePlane.bind(this);
 
     this.gnomon = new THREE.Object3D();
     this.helper.add(this.gnomon);
     this.helper.update = function(camera) {
       this.updateTransform(camera);
       this.updateVisibility();
-      this.updatePlaneOrientation();
     }.bind(this);
 
     this.handles = new THREE.Object3D();
@@ -100,8 +102,6 @@
 
     // internal variables
 
-    var scope = this;
-
     var point;
 
     var worldMatrixStart = new THREE.Matrix4();
@@ -130,9 +130,25 @@
       var objects = scope.selection.objects;
 
       for (var i = 0; i < objects.length; i++) {
-        objects[i]._positionStart = objects[i].position.clone();
-        objects[i]._quaternionStart = objects[i].quaternion.clone();
-        objects[i]._scaleStart = objects[i].scale.clone();
+
+        if (!objects[i].hasOwnProperty('_positionStart')) {
+          Object.defineProperties(objects[i], {
+            '_positionStart': {
+              value: new THREE.Vector3()
+            },
+            '_quaternionStart': {
+              value: new THREE.Quaternion()
+            },
+            '_scaleStart': {
+              value: new THREE.Vector3()
+            }
+          });
+        }
+
+        objects[i]._positionStart.copy(objects[i].position);
+        objects[i]._quaternionStart.copy(objects[i].quaternion);
+        objects[i]._scaleStart.copy(objects[i].scale);
+
       }
 
     }
@@ -243,18 +259,6 @@
 
     }
 
-    function selectionTransformClear() {
-
-      var objects = scope.selection.objects;
-
-      for (var i = 0; i < objects.length; i++) {
-        delete objects[i]._positionStart;
-        delete objects[i]._quaternionStart;
-        delete objects[i]._scaleStart;
-      }
-
-    }
-
     function transformStart(point) {
 
       if (!point) {
@@ -278,7 +282,7 @@
 
     }
 
-    function transform(point, snap) {
+    function transform(point, snap, offset) {
 
       if (!point) {
         return;
@@ -342,7 +346,7 @@
         } else if (axis === 'XYZE') {
 
           tempVector.copy(worldShift).cross(scope.eye).normalize();
-          worldQuaternion.setFromAxisAngle(tempVector, -0.04 * worldShift.length());
+          worldQuaternion.setFromAxisAngle(tempVector, -2 * offset.length());
 
         } else {
 
@@ -376,8 +380,6 @@
 
     function transformEnd() {
 
-      selectionTransformClear();
-
       scope.selection.update();
 
       scope.dispatchEvent({type: 'transformend'});
@@ -389,21 +391,22 @@
 
     this.onHover = function(event, pointers) {
 
-      scope.setAxis(pointers[0]);
+      this.setAxis(pointers[0]);
+      this.plane.position.copy(this.gnomon.position);
+      // this.plane.updateMatrixWorld();
 
     };
 
     this.onTrackstart = function(event, pointers) {
 
-      if (!scope.target) {
+      if (!this.target) {
         return;
       }
 
-      scope.setAxis(pointers[0]);
-      scope.updatePlaneOrientation();
-      point = scope.getPointOnPlane(pointers[0]);
+      this.setAxis(pointers[0]);
+      point = this.getPointOnPlane(pointers[0].position);
 
-      scope.active = scope.axis !== '';
+      this.active = this.axis !== '';
 
       transformStart(point, event.shiftKey);
 
@@ -411,24 +414,27 @@
 
     this.onTrack = function(event, pointers) {
 
-      if (!scope.target) {
+      if (!this.target) {
         return;
       }
 
-      scope.updatePlaneOrientation();
-      point = scope.getPointOnPlane(pointers[0]);
+      point = this.getPointOnPlane(pointers[0].position);
 
-      if (point && scope.axis) {
-        transform(point, event.shiftKey);
+      var offset = pointers[0].offset;
+
+      if (point && this.active) {
+        transform(point, event.shiftKey, offset);
       }
 
     };
 
     this.onTrackend = function() {
 
-      scope.axis = '';
-      scope.active = false;
-      transformEnd();
+      // if (this.active) {
+        transformEnd();
+      // }
+      this.axis = '';
+      this.active = false;
 
     };
 
@@ -437,25 +443,25 @@
       switch (key) {
 
         case 87:
-          scope.mode = 'translate';
+          this.mode = 'translate';
           break;
 
         case 69:
-          scope.mode = 'rotate';
+          this.mode = 'rotate';
           break;
 
         case 82:
-          scope.mode = 'scale';
+          this.mode = 'scale';
           break;
 
         case 81:
-          scope.space = scope.space === 'local' ? 'world' : 'local';
+          this.space = this.space === 'local' ? 'world' : 'local';
           break;
 
       }
 
-      if (scope.mode === 'scale') {
-        scope.space = 'local';
+      if (this.mode === 'scale') {
+        this.space = 'local';
       }
 
     };
@@ -497,8 +503,8 @@
       this.eye.copy(tempVector).normalize();
     }
 
-    this.helper.position.copy(this.position);
-    this.helper.scale.set(scale, scale, scale);
+    this.gnomon.position.copy(this.position);
+    this.gnomon.scale.set(scale, scale, scale);
 
     // TODO: check math
     this.alignVector.copy(this.eye).applyQuaternion(tempQuaternion.copy(this.quaternion).inverse());
@@ -536,7 +542,7 @@
 
     }.bind(this));
 
-    this.helper.updateMatrixWorld();
+    this.gnomon.updateMatrixWorld();
 
   };
 
@@ -597,38 +603,40 @@
 
   };
 
-  REE.TransformControl.prototype.updatePlaneOrientation = function() {
+  REE.TransformControl.prototype.updatePlane = function (camera) {
 
-    if (this.axis === '') {
+    if (!camera || this.axis === '') {
       return;
     }
 
-    if (this.axis === 'X') {
-      this.plane.lookAt(unitX);
-    }
+    switch (this.axis) {
+      case 'X':
+        this.plane.lookAt(unitX);
+        break;
 
-    if (this.axis === 'Y') {
-      this.plane.lookAt(unitY);
-    }
+      case 'Y':
+        this.plane.lookAt(unitY);
+        break;
 
-    if (this.axis === 'Z') {
-      this.plane.lookAt(unitZ);
-    }
+      case 'Z':
+        this.plane.lookAt(unitZ);
+        break;
 
-    if (this.axis === 'XY') {
-      this.plane.lookAt(unitZ);
-    }
+      case 'XY':
+        this.plane.lookAt(unitZ);
+        break;
 
-    if (this.axis === 'YZ') {
-      this.plane.lookAt(unitX);
-    }
+      case 'YZ':
+        this.plane.lookAt(unitX);
+        break;
 
-    if (this.axis === 'XZ') {
-      this.plane.lookAt(unitY);
-    }
+      case 'XZ':
+        this.plane.lookAt(unitY);
+        break;
 
-    if (this.axis === 'XYZ') {
-      this.plane.lookAt(this.eye);
+      case 'XYZ':
+        this.plane.lookAt(this.eye);
+        break;
     }
 
     if (this.mode === 'translate' || this.mode === 'scale') {
@@ -664,7 +672,6 @@
     }
 
     this.plane.updateMatrixWorld();
-
   };
 
   REE.TransformControl.prototype.axisChanged = function() {
@@ -705,7 +712,6 @@
 
     this.gnomon.add(this.handles);
     this.gnomon.add(this.pickers);
-    this.gnomon.add(this.plane);
 
     this.dispatchEvent({type: 'render', renderAll: true, bubble: true});
 
@@ -727,17 +733,6 @@
     }
 
     this.dispatchEvent({type: 'render', bubble: true});
-
-  };
-
-  REE.TransformControl.prototype.getPointOnPlane = function(pointer) {
-
-    ray.setFromCamera(pointer.position, this.camera);
-    intersect = ray.intersectObjects([this.plane])[0];
-
-    if (intersect) {
-      return intersect.point;
-    }
 
   };
 
