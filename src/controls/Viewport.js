@@ -206,9 +206,9 @@
 
     if (this.selection && this.selection.objects.length) {
 
-      if (this.selection.spheREE.radius) {
+      if (this.selection.sphere.radius) {
 
-        var radius = this.selection.spheREE.radius;
+        var radius = this.selection.sphere.radius;
         var offset = this.camera.position.clone().sub(this.camera._target);
 
         if (this.camera instanceof THREE.PerspectiveCamera) {

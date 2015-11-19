@@ -391,6 +391,28 @@
 
     }
 
+    function onKeydown(event) {
+
+      viewport = getViewport(event.path[0]);
+
+      if (!viewport) {
+        return;
+      }
+
+      if (scope.enabled === false) {
+        return;
+      }
+
+      if (event.which === 8) {
+        event.preventDefault();
+      }
+
+      if (typeof scope.onKeydown === 'function') {
+        scope.onKeydown(event, event.which);
+      }
+
+    }
+
     function onKeyup(event) {
 
       viewport = getViewport(event.path[0]);
@@ -438,6 +460,7 @@
     }
 
     // this.onKeyup = function(event, key) {console.log('onKeyup'); };
+    // this.onKeydown = function(event, key) {console.log('onKeydown'); };
     // this.onContextmenu = function(event, pointers) {console.log('onContextmenu'); };
     // this.onTrackstart = function(event, pointers) {console.log('onTrackstart'); };
     // this.onMousewheel = function(event, delta) {console.log('onMousewheel'); };
@@ -463,6 +486,7 @@
         domElement.addEventListener('mousewheel', onMousewheel);
         domElement.addEventListener('DOMMouseScroll', onMousewheel); // firefox
         domElement.addEventListener('mousemove', onHover);
+        domElement.addEventListener('keydown', onKeydown);
         domElement.addEventListener('keyup', onKeyup);
         domElement.addEventListener('contextmenu', onContextmenu);
 
@@ -485,6 +509,7 @@
         domElement.removeEventListener('mousewheel', onMousewheel);
         domElement.removeEventListener('DOMMouseScroll', onMousewheel); // firefox
         domElement.removeEventListener('mousemove', onHover);
+        domElement.removeEventListener('keydown', onKeydown);
         domElement.removeEventListener('keyup', onKeyup);
         domElement.removeEventListener('contextmenu', onContextmenu);
 
