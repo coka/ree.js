@@ -25,7 +25,6 @@
   REE.SceneState.prototype.registerProperty = REE.Element.prototype.registerProperty;
   REE.SceneState.prototype.registerProperties = REE.Element.prototype.registerProperties;
   REE.SceneState.prototype.bindProperty = REE.Element.prototype.bindProperty;
-  REE.SceneState.prototype.bindProperties = REE.Element.prototype.bindProperties;
   REE.SceneState.prototype.dispose = REE.Element.prototype.dispose;
   REE.SceneState.prototype.debounce = REE.Element.prototype.debounce;
   REE.SceneState.prototype.addEventListener = REE.Element.prototype.addEventListener;

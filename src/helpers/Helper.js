@@ -17,7 +17,6 @@ REE.Helper.prototype.constructor = REE.Helper;
 REE.Helper.prototype.registerProperty = REE.Element.prototype.registerProperty;
 REE.Helper.prototype.registerProperties = REE.Element.prototype.registerProperties;
 REE.Helper.prototype.bindProperty = REE.Element.prototype.bindProperty;
-REE.Helper.prototype.bindProperties = REE.Element.prototype.bindProperties;
 REE.Helper.prototype.dispose = REE.Element.prototype.dispose;
 REE.Helper.prototype.debounce = REE.Element.prototype.debounce;
 REE.Helper.prototype.addEventListener = REE.Element.prototype.addEventListener;

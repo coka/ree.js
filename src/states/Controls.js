@@ -21,12 +21,12 @@
       selectionControl: {
         value: new REE.SelectionControl({scene: [this, 'scene']}).begin(),
         type: REE.SelectionControl,
-        vritable: false
+        writable: false
       },
       viewportControl: {
         value: new REE.ViewportControl(),
         type: REE.ViewportControl,
-        vritable: false
+        writable: false
       },
       control: {
         type: REE.Control,
@@ -70,10 +70,10 @@
 
         this.mode = mode;
         this.control = new REE[constructor]();
-        this.bindProperty(this.control, 'scene', 'scene');
-        this.bindProperty(this.control, 'mode', 'mode');
-        this.bindProperty(this.control, 'snapDistance', 'snapDistance');
-        this.bindProperty(this.control, 'snapAngle', 'snapAngle');
+        this.bindProperty('scene', this.control, 'scene');
+        this.bindProperty('mode', this.control, 'mode');
+        this.bindProperty('snapDistance', this.control, 'snapDistance');
+        this.bindProperty('snapAngle', this.control, 'snapAngle');
         this.control.addEventListener('cancel', function() {this.selector = '';}.bind(this));
         this.control.addEventListener('end', function() {this.selector = '';}.bind(this));
         this.control.addEventListener('active-changed', function() {

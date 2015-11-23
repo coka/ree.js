@@ -28,6 +28,9 @@
     });
 
     setTimeout(function () {
+      if (this.ready) {
+        this.ready();
+      }
       this._ready = true;
     }.bind(this));
 
@@ -116,10 +119,10 @@
 
       if (!config[0]._ready) {
         this.debounce('bind-property' + key, function () {
-          config[0].bindProperty(this, config[1], key);
+          config[0].bindProperty(config[1], this, key);
         }.bind(this));
       } else {
-        config[0].bindProperty(this, config[1], key);
+        config[0].bindProperty(config[1], this, key);
       }
 
     }
@@ -142,7 +145,8 @@
 
   };
 
-  REE.Element.prototype.bindProperty = function(target, key, targetkey) {
+  // TODO: consider on-way binding option.
+  REE.Element.prototype.bindProperty = function(key, target, targetkey) {
 
     // For compatibility with polymer elements.
     // TODO: HACK! `target._property[targetkey]` makes code simpler.
@@ -174,19 +178,10 @@
     source.addEventListener(this._bindings[srcPath].sourcePath + '-changed', this._bindings[srcPath].sourceObserver);
     target.addEventListener(this._bindings[srcPath].targetPath + '-changed', this._bindings[srcPath].targetObserver);
 
-    // TODO: consider reversing
     if (source[key] !== undefined) {
       target[targetkey] = source[key];
     } else if (target[targetkey] !== undefined) {
       source[key] = target[targetkey];
-    }
-
-  };
-
-  REE.Element.prototype.bindProperties = function(target, bindings) {
-
-    for (var key in bindings) {
-      this.bindProperty(target, key, bindings[key]);
     }
 
   };
