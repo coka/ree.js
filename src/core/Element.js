@@ -27,7 +27,7 @@
       }
     });
 
-    setTimeout(function () {
+    setTimeout(function() {
       if (this.ready) {
         this.ready();
       }
@@ -118,7 +118,7 @@
     if (config instanceof Array && config[0] instanceof REE.Element && typeof config[1] === 'string') {
 
       if (!config[0]._ready) {
-        this.debounce('bind-property' + key, function () {
+        this.debounce('bind-property' + key, function() {
           config[0].bindProperty(config[1], this, key);
         }.bind(this));
       } else {

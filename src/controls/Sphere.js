@@ -27,7 +27,6 @@
 
     this.onTrackstart = function(event, pointers) {
 
-
       if (event.altKey) {
         return;
       }

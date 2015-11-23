@@ -58,7 +58,6 @@
       }
     });
 
-
     this.helper.visible = false;
     this.plane.update = this.updatePlane.bind(this);
 
@@ -430,9 +429,8 @@
 
     this.onTrackend = function() {
 
-      // if (this.active) {
-        transformEnd();
-      // }
+      transformEnd();
+
       this.axis = '';
       this.active = false;
 
@@ -603,7 +601,7 @@
 
   };
 
-  REE.TransformControl.prototype.updatePlane = function (camera) {
+  REE.TransformControl.prototype.updatePlane = function(camera) {
 
     if (!camera || this.axis === '') {
       return;

@@ -24,7 +24,7 @@
   REE.PlaneHelper.prototype = Object.create(REE.Helper.prototype);
   REE.PlaneHelper.prototype.constructor = REE.PlaneHelper;
 
-  REE.PlaneHelper.prototype.lookAt = function (vector) {
+  REE.PlaneHelper.prototype.lookAt = function(vector) {
     this._planeHelper.lookAt(vector);
   };
 

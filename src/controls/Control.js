@@ -585,7 +585,7 @@
 
   };
 
-  REE.Control.prototype.updatePlane = function (camera) {
+  REE.Control.prototype.updatePlane = function(camera) {
 
     if (camera === undefined) {
       return;

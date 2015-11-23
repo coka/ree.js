@@ -10,12 +10,12 @@ REE.Revision = '0.0.1';
 
   'use strict';
 
-  REE.Register = function (data) {
+  REE.Register = function(data) {
 
     var properties = data.properties || {};
     var constructor = data.is;
 
-    REE[constructor] = function (config) {
+    REE[constructor] = function(config) {
 
       REE.Element.call(this, config);
 
@@ -29,7 +29,7 @@ REE.Revision = '0.0.1';
 
     REE[constructor].prototype = Object.create(REE.Element.prototype);
     REE[constructor].prototype.constructor = REE[constructor];
-    Object.defineProperty( REE[constructor], 'name', { value: constructor } );
+    Object.defineProperty(REE[constructor], 'name', {value: constructor});
     REE[constructor].prototype.toString = function() {
       return 'REE.' + constructor;
     };
@@ -43,7 +43,6 @@ REE.Revision = '0.0.1';
       }
 
     }
-
 
   };
 

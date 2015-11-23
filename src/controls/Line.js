@@ -158,14 +158,6 @@
 
     }
 
-    function cancel() {
-      if (lineHelper.parent) {
-        lineHelper.parent.remove(lineHelper);
-      }
-      lineArray.length = 0;
-      scope.dispatchEvent({type: 'render', bubble: true, renderAll: true});
-    }
-
     function removeLastPoint() {
       if (lineArray.length) {
         lineArray.splice(lineArray.length - 3, 3);

@@ -82,7 +82,7 @@
         persist: true
       }
     },
-    ready: function () {
+    ready: function() {
       console.log('' + this, 'ready');
     }
   });
